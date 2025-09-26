@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск по статье</title>
+    <style>
+        .search-widget {
+            font-family: Arial, sans-serif;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .search-input {
+            width: 70%;
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .search-btn {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .search-btn:hover {
+            background: #0056b3;
+        }
+        .results {
+            margin-top: 15px;
+        }
+        .result-item {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            border-left: 3px solid #007bff;
+        }
+        .result-item:hover {
+            background: #e3f2fd;
+        }
+        .highlight {
+            background-color: yellow;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-widget">
+        <h3>🔍 Поиск по статье</h3>
+        <input type="text" class="search-input" id="searchInput" placeholder="Введите ключевое слово...">
+        <button class="search-btn" onclick="searchInArticle()">Найти</button>
+        <button class="search-btn" onclick="clearSearch()" style="background: #6c757d;">Очистить</button>
+        
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        // Эта функция будет искать по всей родительской странице (статье TEAMLY)
+        function searchInArticle() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            if (!searchTerm) return;
+
+            try {
+                // Получаем доступ к родительскому документу (статье TEAMLY)
+                const parentDocument = window.parent.document;
+                const resultsContainer = document.getElementById('results');
+                resultsContainer.innerHTML = '';
+                
+                let resultCount = 0;
+                
+                // Ищем спойлеры - попробуйте разные селекторы
+                const spoilerSelectors = [
+                    'details', 
+                    '[class*="spoiler"]', 
+                    '[class*="collapse"]',
+                    '.spoiler',
+                    '.accordion',
+                    '.toggle'
+                ];
+                
+                let spoilers = [];
+                spoilerSelectors.forEach(selector => {
+                    const found = parentDocument.querySelectorAll(selector);
+                    if (found.length > 0) {
+                        spoilers = found;
+                    }
+                });
+                
+                if (spoilers.length === 0) {
+                    // Если не нашли спойлеры, ищем по всему тексту
+                    spoilers = [parentDocument.body];
+                }
+
+                spoilers.forEach((spoiler, index) => {
+                    const textContent = spoiler.textContent.toLowerCase();
+                    const searchTermLower = searchTerm.toLowerCase();
+                    
+                    if (textContent.includes(searchTermLower)) {
+                        resultCount++;
+                        
+                        // Пытаемся раскрыть спойлер
+                        try {
+                            if (spoiler.tagName === 'DETAILS') {
+                                spoiler.open = true;
+                            } else if (spoiler.click) {
+                                // Для кастомных спойлеров
+                                const toggleBtn = spoiler.querySelector('[class*="toggle"], [class*="spoiler"]') || spoiler;
+                                toggleBtn.click();
+                            }
+                        } catch (e) {
+                            console.log('Не удалось раскрыть спойлер:', e);
+                        }
+                        
+                        // Подсвечиваем текст
+                        highlightText(spoiler, searchTerm);
+                        
+                        // Добавляем результат в виджет
+                        const resultElement = document.createElement('div');
+                        resultElement.className = 'result-item';
+                        resultElement.innerHTML = `
+                            <strong>Результат ${resultCount}:</strong><br>
+                            ${getSnippet(spoiler.textContent, searchTerm)}
+                        `;
+                        resultElement.onclick = () => {
+                            spoiler.scrollIntoView({ behavior: 'smooth' });
+                        };
+                        resultsContainer.appendChild(resultElement);
+                    }
+                });
+                
+                if (resultCount === 0) {
+                    resultsContainer.innerHTML = '<div class="result-item">Ничего не найдено</div>';
+                } else {
+                    const summary = document.createElement('div');
+                    summary.className = 'result-item';
+                    summary.innerHTML = `<strong>Найдено результатов: ${resultCount}</strong>`;
+                    resultsContainer.insertBefore(summary, resultsContainer.firstChild);
+                }
+                
+            } catch (error) {
+                document.getElementById('results').innerHTML = 
+                    '<div class="result-item">Ошибка доступа к содержимому статьи</div>';
+                console.error('Ошибка поиска:', error);
+            }
+        }
+
+        function highlightText(element, searchTerm) {
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            element.innerHTML = element.innerHTML.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        function getSnippet(text, term) {
+            const index = text.toLowerCase().indexOf(term.toLowerCase());
+            const start = Math.max(0, index - 50);
+            const end = Math.min(text.length, index + term.length + 50);
+            let snippet = text.substring(start, end);
+            
+            if (start > 0) snippet = '...' + snippet;
+            if (end < text.length) snippet = snippet + '...';
+            
+            return snippet.replace(new RegExp(term, 'gi'), '<span class="highlight">$&</span>');
+        }
+
+        function clearSearch() {
+            try {
+                const parentDocument = window.parent.document;
+                // Убираем подсветку
+                parentDocument.querySelectorAll('.highlight').forEach(el => {
+                    el.outerHTML = el.innerHTML;
+                });
+            } catch (e) {
+                console.log('Ошибка при очистке:', e);
+            }
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('searchInput').value = '';
+        }
+
+        // Поиск при нажатии Enter
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchInArticle();
+            }
+        });
+    </script>
+</body>
+</html>
