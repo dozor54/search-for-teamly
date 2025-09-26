@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Поиск для TEAMLY</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .search-box { background: #f0f8ff; padding: 20px; border-radius: 10px; }
+        input, button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <div class="search-box">
+        <h2>🔍 Поиск по статье TEAMLY</h2>
+        <input type="text" id="searchText" placeholder="Введите слово...">
+        <button onclick="testSearch()">Найти</button>
+        <button onclick="clearSearch()">Очистить</button>
+        <p id="status">Готов к работе</p>
+    </div>
+
+    <script>
+        function testSearch() {
+            const term = document.getElementById('searchText').value;
+            document.getElementById('status').innerHTML = 
+                `Ищем: "<strong>${term}</strong>" в родительском документе...`;
+            
+            // Попытка доступа к родительской странице
+            try {
+                if (window.parent && window.parent.document) {
+                    document.getElementById('status').innerHTML += 
+                        "<br>✓ Доступ к родительской странице получен!";
+                }
+            } catch (e) {
+                document.getElementById('status').innerHTML += 
+                    `<br>✗ Ошибка доступа: ${e.message}`;
+            }
+        }
+        
+        function clearSearch() {
+            document.getElementById('searchText').value = '';
+            document.getElementById('status').innerHTML = 'Очищено. Готов к работе.';
+        }
+    </script>
+</body>
+</html>
